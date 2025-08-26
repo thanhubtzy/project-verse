@@ -1,0 +1,281 @@
+--// Services
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+-- Remove old GUI if exists
+for _, guiName in ipairs({"DeltaWarningGUI", "AwesomeScriptX"}) do
+    local old = PlayerGui:FindFirstChild(guiName)
+    if old then old:Destroy() end
+end
+
+-- === Function to run AwesomeScriptX GUI ===
+local function runAwesomeScriptX()
+    if _G.DiamlaHub_Cleanup then
+        _G.DiamlaHub_Cleanup()
+    end
+
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "AwesomeScriptX"
+    screenGui.ResetOnSpawn = false
+    screenGui.Parent = PlayerGui
+
+    _G.DiamlaHub_Threads = {}
+    _G.DiamlaHub_Active = true
+
+    local function cleanupAll()
+        _G.DiamlaHub_Active = false
+        for _, t in ipairs(_G.DiamlaHub_Threads) do
+            if typeof(t) == "RBXScriptConnection" then pcall(t.Disconnect,t)
+            elseif typeof(t) == "Instance" and t.Destroy then pcall(t.Destroy,t)
+            elseif typeof(t) == "function" then pcall(t) end
+        end
+        table.clear(_G.DiamlaHub_Threads)
+        if screenGui then screenGui:Destroy() end
+    end
+    _G.DiamlaHub_Cleanup = cleanupAll
+
+    -- === Loading Screen ===
+    local loadingFrame = Instance.new("Frame", screenGui)
+    loadingFrame.Size = UDim2.new(0, 300, 0, 150)
+    loadingFrame.Position = UDim2.new(0.5, -150, 0.5, -75)
+    loadingFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    loadingFrame.BorderSizePixel = 0
+    Instance.new("UICorner", loadingFrame).CornerRadius = UDim.new(0, 12)
+
+    local loadingLabel = Instance.new("TextLabel", loadingFrame)
+    loadingLabel.Size = UDim2.new(1, 0, 0.4, 0)
+    loadingLabel.Position = UDim2.new(0, 0, 0, 10)
+    loadingLabel.BackgroundTransparency = 1
+    loadingLabel.Text = "Loading GrowAGarden..."
+    loadingLabel.Font = Enum.Font.GothamBold
+    loadingLabel.TextSize = 22
+    loadingLabel.TextColor3 = Color3.new(1,1,1)
+
+    local loadingBarBg = Instance.new("Frame", loadingFrame)
+    loadingBarBg.Size = UDim2.new(0.9, 0, 0, 20)
+    loadingBarBg.Position = UDim2.new(0.05, 0, 0.7, 0)
+    loadingBarBg.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    Instance.new("UICorner", loadingBarBg).CornerRadius = UDim.new(0, 10)
+
+    local loadingBar = Instance.new("Frame", loadingBarBg)
+    loadingBar.Size = UDim2.new(0, 0, 1, 0)
+    loadingBar.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+    Instance.new("UICorner", loadingBar).CornerRadius = UDim.new(0, 10)
+
+    game:GetService("TweenService"):Create(loadingBar,
+        TweenInfo.new(5, Enum.EasingStyle.Linear), {Size = UDim2.new(1,0,1,0)}
+    ):Play()
+
+    -- === Show main GUI after load ===
+    task.delay(5, function()
+        loadingFrame:Destroy()
+
+        -- Main Frame
+        local frame = Instance.new("Frame", screenGui)
+        frame.Size = UDim2.new(0, 320, 0, 300)
+        frame.Position = UDim2.new(0.5, -160, 0.5, -150)
+        frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+        Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 14)
+        local stroke = Instance.new("UIStroke", frame)
+        stroke.Thickness = 2
+        stroke.Color = Color3.new(1,1,1)
+
+        -- Title Bar
+        local title = Instance.new("TextLabel", frame)
+        title.Size = UDim2.new(1, -80, 0, 40)
+        title.Position = UDim2.new(0, 10, 0, 0)
+        title.BackgroundTransparency = 1
+        title.Text = "AwesomeScript X"
+        title.Font = Enum.Font.GothamBold
+        title.TextSize = 22
+        title.TextColor3 = Color3.new(1,1,1)
+        title.TextXAlignment = Enum.TextXAlignment.Left
+
+        -- Close Button
+        local closeBtn = Instance.new("TextButton", frame)
+        closeBtn.Size = UDim2.new(0, 30, 0, 30)
+        closeBtn.Position = UDim2.new(1, -35, 0, 5)
+        closeBtn.Text = "X"
+        closeBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+        closeBtn.TextColor3 = Color3.new(1,1,1)
+        closeBtn.Font = Enum.Font.GothamBold
+        closeBtn.TextSize = 18
+        Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 6)
+        closeBtn.MouseButton1Click:Connect(cleanupAll)
+
+        -- Minimize Button
+        local minimizeBtn = Instance.new("TextButton", frame)
+        minimizeBtn.Size = UDim2.new(0, 30, 0, 30)
+        minimizeBtn.Position = UDim2.new(1, -70, 0, 5)
+        minimizeBtn.Text = "_"
+        minimizeBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+        minimizeBtn.TextColor3 = Color3.new(1,1,1)
+        minimizeBtn.Font = Enum.Font.GothamBold
+        minimizeBtn.TextSize = 18
+        Instance.new("UICorner", minimizeBtn).CornerRadius = UDim.new(0, 6)
+
+        -- Content Area
+        local content = Instance.new("Frame", frame)
+        content.Size = UDim2.new(1,0,1,-40)
+        content.Position = UDim2.new(0,0,0,40)
+        content.BackgroundTransparency = 1
+
+        local minimized = false
+        minimizeBtn.MouseButton1Click:Connect(function()
+            minimized = not minimized
+            content.Visible = not minimized
+            frame.Size = minimized and UDim2.new(0, 320, 0, 40) or UDim2.new(0, 320, 0, 300)
+        end)
+
+        -- Footer
+        local footer = Instance.new("TextLabel", content)
+        footer.Size = UDim2.new(1,0,0,25)
+        footer.Position = UDim2.new(0,0,1,-25)
+        footer.BackgroundTransparency = 1
+        footer.Text = "Made by AwesomeScriptX"
+        footer.Font = Enum.Font.Gotham
+        footer.TextSize = 14
+        footer.TextColor3 = Color3.new(1,1,1)
+
+        -- ✅ Dragging (works PC + Mobile)
+        local UIS = game:GetService("UserInputService")
+        local dragging, dragInput, dragStart, startPos
+
+        local function update(input)
+            local delta = input.Position - dragStart
+            frame.Position = UDim2.new(
+                startPos.X.Scale, startPos.X.Offset + delta.X,
+                startPos.Y.Scale, startPos.Y.Offset + delta.Y
+            )
+        end
+
+        local function beginDrag(input)
+            dragging = true
+            dragStart = input.Position
+            startPos = frame.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+
+        -- Mouse
+        title.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                beginDrag(input)
+            elseif input.UserInputType == Enum.UserInputType.Touch then
+                beginDrag(input)
+            end
+        end)
+
+        title.InputChanged:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseMovement 
+            or input.UserInputType == Enum.UserInputType.Touch then
+                dragInput = input
+            end
+        end)
+
+        UIS.InputChanged:Connect(function(input)
+            if input == dragInput and dragging then
+                update(input)
+            end
+        end)
+
+        -- === Normal Buttons ===
+        local names = {"Trade Scam","Dupe Panel","ESP Egg","THANHUB"}
+        local codes = {
+            'loadstring(game:HttpGet("https://raw.githubusercontent.com/YunjinScriptt/FREEZE-TRADE/refs/heads/main/lua"))()',
+            'loadstring(game:HttpGet("https://raw.githubusercontent.com/YunjinScriptt/Dupe-panel-script/refs/heads/main/lua"))()',
+            'loadstring(game:HttpGet("https://raw.githubusercontent.com/YunjinScriptt/Egg-Esp/refs/heads/main/loader.lua"))()',
+            'loadstring(game:HttpGet("https://raw.githubusercontent.com/thantzy/thanhub/refs/heads/main/thanv1"))()'
+        }
+
+        local function createButton(txt,y,code)
+            local b=Instance.new("TextButton",content)
+            b.Size=UDim2.new(0,200,0,40)
+            b.Position=UDim2.new(0.5,-100,0,y)
+            b.Text=txt
+            b.BackgroundColor3=Color3.fromRGB(40,40,40)
+            b.TextColor3=Color3.new(1,1,1)
+            b.Font=Enum.Font.GothamBold
+            b.TextSize=18
+            Instance.new("UICorner",b).CornerRadius=UDim.new(0,10)
+            b.MouseButton1Click:Connect(function()
+                if not _G.DiamlaHub_Active then return end
+                local s,r=pcall(function() return loadstring(code)() end)
+                if not s then warn("Error: "..tostring(r)) end
+            end)
+        end
+
+        for i,code in ipairs(codes) do
+            createButton(names[i],40+(i-1)*45,code)
+        end
+
+        -- === DarkSpawner Button (fixed) ===
+        local spawnerBtn=Instance.new("TextButton",content)
+        spawnerBtn.Size=UDim2.new(0,200,0,40)
+        spawnerBtn.Position=UDim2.new(0.5,-100,0,40+(#codes)*45)
+        spawnerBtn.Text="DarkSpawner"
+        spawnerBtn.BackgroundColor3=Color3.fromRGB(40,40,40)
+        spawnerBtn.TextColor3=Color3.new(1,1,1)
+        spawnerBtn.Font=Enum.Font.GothamBold
+        spawnerBtn.TextSize=18
+        Instance.new("UICorner",spawnerBtn).CornerRadius=UDim.new(0,10)
+        spawnerBtn.MouseButton1Click:Connect(function()
+            if not _G.DiamlaHub_Active then return end
+            local ok,err=pcall(function()
+                local Spawner=loadstring(game:HttpGet("https://gitlab.com/darkiedarkie/dark/-/raw/main/Spawner.lua"))()
+                Spawner.Load()
+            end)
+            if not ok then warn("DarkSpawner Error: "..tostring(err)) end
+        end)
+    end)
+end
+
+-- === Warning Screen ===
+local warningGui=Instance.new("ScreenGui",PlayerGui)
+warningGui.Name="DeltaWarningGUI"
+warningGui.ResetOnSpawn=false
+
+local main=Instance.new("Frame",warningGui)
+main.Size=UDim2.new(0,400,0,220)
+main.Position=UDim2.new(0.5,-200,0.5,-110)
+main.BackgroundColor3=Color3.fromRGB(20,20,20)
+Instance.new("UICorner",main).CornerRadius=UDim.new(0,14)
+
+local t=Instance.new("TextLabel",main)
+t.Size=UDim2.new(1,-16,0,40)
+t.Position=UDim2.new(0,8,0,8)
+t.BackgroundTransparency=1
+t.Text="⚠ Turn off all on Delta settings ⚠"
+t.Font=Enum.Font.GothamBold
+t.TextSize=18
+t.TextColor3=Color3.fromRGB(255,85,85)
+
+local info=Instance.new("TextLabel",main)
+info.Size=UDim2.new(1,-16,0,120)
+info.Position=UDim2.new(0,8,0,50)
+info.BackgroundTransparency=1
+info.Text="1. Disable Anti-AFK\n2. Disable Verify Teleport\n3. Disable Anti-Scam\n\n✅ After disabling, press OK to continue."
+info.TextColor3=Color3.fromRGB(220,220,220)
+info.TextXAlignment=Enum.TextXAlignment.Left
+info.TextYAlignment=Enum.TextYAlignment.Top
+info.TextSize=16
+info.Font=Enum.Font.Gotham
+
+local ok=Instance.new("TextButton",main)
+ok.Size=UDim2.new(0,160,0,40)
+ok.Position=UDim2.new(0.5,-80,1,-55)
+ok.BackgroundColor3=Color3.fromRGB(0,170,85)
+ok.Text="Okay"
+ok.TextColor3=Color3.new(1,1,1)
+ok.TextSize=18
+ok.Font=Enum.Font.GothamBold
+Instance.new("UICorner",ok).CornerRadius=UDim.new(0,10)
+
+ok.MouseButton1Click:Connect(function()
+    warningGui:Destroy()
+    runAwesomeScriptX()
+end)
